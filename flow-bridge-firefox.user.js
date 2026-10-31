@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Flow Bridge (Firefox)
 // @namespace    flow-bridge-firefox
-// @version      1.0.0
+// @version      1.0.1
 // @description  Flow availability unlocker for Firefox — port of the Flow Bridge Chrome extension logic
 // @description:ru  Разблокировка Google Flow в Firefox (порт логики Flow Bridge для Chrome)
 // @author       grashooper

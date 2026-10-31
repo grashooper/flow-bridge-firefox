@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-1.0.1-blue?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/platform-Firefox%20%7C%20Tampermonkey-orange?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
 
@@ -74,7 +74,7 @@
 
 ## ✅ Проверка установки
 
-- Tampermonkey → Dashboard → **Installed scripts** → «Flow Bridge (Firefox)» v1.0.0 включён.
+- Tampermonkey → Dashboard → **Installed scripts** → «Flow Bridge (Firefox)» v1.0.1 включён.
 - На `flow.google.com` откройте консоль (F12 → Console) — должны быть строки:
   ```
   [Flow Bridge FF] fetch hooked
