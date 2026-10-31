@@ -83,7 +83,7 @@
             if (nextNl === -1) { out += raw.slice(pos); break; }
             const lenStr = raw.substring(pos, nextNl);
             const len = Number(lenStr);
-            if (isNaN(len) || nextNl + len > raw.length) { out += raw.slice(pos); break; }
+            if (!Number.isFinite(len) || len <= 0 || nextNl + len > raw.length) { out += raw.slice(pos); break; }
 
             const chunkWithNl = raw.substr(nextNl, len);
             const chunkJson = chunkWithNl.slice(1);
@@ -151,9 +151,11 @@
             Object.defineProperty(XHR.prototype, 'responseText', {
                 configurable: true,
                 get: function () {
+                    if (this.responseType && this.responseType !== 'text') {
+                        return dText.get.call(this);
+                    }
                     try {
                         const raw = dText.get.call(this);
-                        if (this.responseType && this.responseType !== 'text') return raw;
                         if (typeof raw !== 'string' || isOff()) return raw;
                         return patchGoogleStream(raw);
                     } catch (_) {
@@ -166,9 +168,11 @@
             Object.defineProperty(XHR.prototype, 'response', {
                 configurable: true,
                 get: function () {
+                    if (this.responseType && this.responseType !== 'text' && this.responseType !== '') {
+                        return dResp.get.call(this);
+                    }
                     try {
                         const raw = dResp.get.call(this);
-                        if (this.responseType && this.responseType !== 'text' && this.responseType !== '') return raw;
                         if (typeof raw !== 'string' || isOff()) return raw;
                         return patchGoogleStream(raw);
                     } catch (_) {
@@ -200,6 +204,7 @@
             if (isOff()) return res;
 
             if (url.indexOf('batchexecute') !== -1) {
+                if (res.status === 204 || res.status === 205 || res.status === 304) return res;
                 try {
                     const raw = await res.text();
                     const patched = patchGoogleStream(raw);
@@ -214,6 +219,7 @@
             if (url.indexOf('fetchToolAvailability') !== -1 ||
                 url.indexOf('checkAppAvailability') !== -1 ||
                 url.indexOf('trpc/general.') !== -1) {
+                if (res.status === 204 || res.status === 205 || res.status === 304) return res;
                 try {
                     const text = await res.text();
                     const headers = new Headers(res.headers);
@@ -221,7 +227,7 @@
                     try {
                         const data = JSON.parse(text);
                         patchDeepJson(data);
-                        return new Response(JSON.stringify(data), { status: 200, statusText: 'OK', headers: headers });
+                        return new Response(JSON.stringify(data), { status: res.status, statusText: res.statusText, headers: headers });
                     } catch (_) {
                         return new Response(text, { status: res.status, statusText: res.statusText, headers: headers });
                     }
