@@ -2,6 +2,12 @@
 
 Все заметные изменения проекта. Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [1.0.2] — 2026-10-31
+
+### Изменено
+
+- Fix stream parser hang, XHR responseType semantics, preserve availability status
+
 ## [1.0.1] — 2026-10-31
 
 ### Изменено
