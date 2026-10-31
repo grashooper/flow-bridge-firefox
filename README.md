@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.0.2-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-1.0.3-blue?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/platform-Firefox%20%7C%20Tampermonkey-orange?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
 
@@ -38,7 +38,7 @@
 
 ### 🛠️ Технически
 - ✅ Хуки `fetch` и `XMLHttpRequest` на `document-start`
-- ✅ Closure-стрим `batchexecute` (`)]}'\n\n`)
+- ✅ Closure-стрим `batchexecute` (префикс `)]}'`) — патч **без буферизации**, поток не ломается
 - ✅ Блок NextAuth `api/auth/signout`
 - ✅ Выключатель без удаления скрипта
 
@@ -74,7 +74,7 @@
 
 ## ✅ Проверка установки
 
-- Tampermonkey → Dashboard → **Installed scripts** → «Flow Bridge (Firefox)» v1.0.2 включён.
+- Tampermonkey → Dashboard → **Installed scripts** → «Flow Bridge (Firefox)» v1.0.3 включён.
 - На `flow.google.com` откройте консоль (F12 → Console) — должны быть строки:
   ```
   [Flow Bridge FF] fetch hooked
@@ -97,10 +97,11 @@
 ## 🔍 Как это работает
 
 1. На `document-start` ставятся обёртки на `fetch` и геттеры `responseText` / `response` у `XMLHttpRequest`.
-2. Ответы `batchexecute` проходят через `patchGoogleStream`: парсится Closure-формат (префикс `)]}'\n\n`, чанки `длина\nJSON`) и патчатся поля доступности.
-3. Ответы `fetchToolAvailability`, `checkAppAvailability`, `trpc/general.` проходят через `patchDeepJson`.
-4. Запросы `api/auth/signout` блокируются — Google не разлогинивает при проверке доступности.
-5. Открыт `/unsupported-country` — выполняется редирект на `/`.
+2. Ответы `batchexecute` патчатся **потоково** (`TransformStream`): парсер разбирает Closure-формат (префикс `)]}'`, чанки `длина\nJSON`), пересчитывает длину только изменённых чанков и отдаёт данные дальше по мере поступления — ответ не буферизуется целиком.
+3. Парсер устойчив к вариантам формата: `)]}'\n`, `)]}'\r\n\r\n`, пустые строки между чанками, поток без префикса и обе конвенции длины чанка (`len` с переводом строки и без).
+4. Ответы `fetchToolAvailability`, `checkAppAvailability`, `trpc/general.` проходят через `patchDeepJson`.
+5. Запросы `api/auth/signout` блокируются — Google не разлогинивает при проверке доступности.
+6. Открыт `/unsupported-country` — выполняется редирект на `/` (с защитой от цикла перезагрузок).
 
 ## ❓ Диагностика
 
@@ -123,11 +124,22 @@
 flow-bridge-firefox/
 ├── flow-bridge-firefox.user.js   # сам скрипт
 ├── scripts/release.js            # автоматизация релиза
+├── test/flow-bridge.test.js      # тесты парсера, хуков и релиз-скрипта
+├── package.json                  # npm test (node:test, без зависимостей)
 ├── README.md                     # эта инструкция
 ├── CHANGELOG.md                  # история изменений
 ├── LICENSE                       # MIT
 └── .gitignore
 ```
+
+## 🧪 Тесты
+
+```bash
+npm test          # node --test test/
+node --test test/flow-bridge.test.js   # напрямую, без npm
+```
+
+Тесты поднимают юзерскрипт в `vm`-песочнице с заглушками `window` / `XMLHttpRequest` / `localStorage` / `sessionStorage` и проверяют: разбор Closure-потока (все варианты префикса и длины чанка), патч `cPZSdc` и RPC доступности, семантику `responseText`/`response`, потоковость `fetch`-хука, блокировку signOut, редирект и `scripts/release.js`. Нужен Node.js 18+ и `git` в `PATH`.
 
 ## 🔄 Обновление
 
@@ -150,7 +162,7 @@ node scripts/release.js patch --dry-run   # только показать пла
 node scripts/release.js patch --no-push   # коммит и тег без пуша
 ```
 
-Скрипт поднимает `@version`, версию в README и CHANGELOG, коммитит, ставит тег `vX.Y.Z`, пушит `main` и тег, затем создаёт GitHub Release с файлом `.user.js` (через `gh`). Требования: чистый рабочий каталог и авторизованный `gh`.
+Скрипт поднимает `@version`, версию в README и CHANGELOG, коммитит, ставит тег `vX.Y.Z`, пушит ветку и тег, затем создаёт GitHub Release с файлом `.user.js` (через `gh`). Требования: ветка `main`, чистый рабочий каталог, авторизованный `gh`. `--dry-run` показывает план и работает даже при незакоммиченных изменениях.
 
 ---
 

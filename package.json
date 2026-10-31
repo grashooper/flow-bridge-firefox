@@ -1,0 +1,13 @@
+{
+  "name": "flow-bridge-firefox",
+  "version": "1.0.3",
+  "private": true,
+  "description": "Flow availability unlocker for Firefox — один самодостаточный юзерскрипт",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
