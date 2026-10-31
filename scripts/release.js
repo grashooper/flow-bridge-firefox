@@ -42,15 +42,45 @@ function run(cmd, args) {
 const git = (...args) => run('git', args);
 const gh = (...args) => run('gh', args);
 
+const MAIN_BRANCH = 'main';
+
+function detail(e) {
+    return String((e && (e.stderr || e.message)) || e).trim();
+}
+
+/** Понятное сообщение + опциональная подсказка вместо дампа стека. */
+function fatal(message, hint) {
+    console.error(message);
+    if (hint) console.error(hint);
+    process.exit(1);
+}
+
+/** git-обёртка: при ошибке печатает stderr git, а не объект Error целиком. */
+function gitChecked(...args) {
+    try {
+        return git(...args);
+    } catch (e) {
+        fatal(`git ${args.join(' ')} — ошибка:\n${detail(e)}`);
+    }
+}
+
+function currentBranch() {
+    try {
+        return git('rev-parse', '--abbrev-ref', 'HEAD').trim();
+    } catch (e) {
+        fatal('Не удалось определить текущую ветку:\n' + detail(e));
+    }
+}
+
 function readVersion() {
     const m = fs.readFileSync(SCRIPT, 'utf8').match(/^\/\/ @version\s+(\S+)/m);
-    if (!m) throw new Error('Не найден @version в userscript');
+    if (!m) fatal('Не найден @version в userscript');
     return m[1];
 }
 
 function parse(v) {
     const m = String(v).match(/^(\d+)\.(\d+)\.(\d+)$/);
-    if (!m) throw new Error(`Некорректная версия: ${v}`);
+    if (!m) fatal(`Некорректная версия: ${v}`, 'Ожидается формат X.Y.Z, например 1.2.3');
     return m.slice(1).map(Number);
 }
 const fmt = (a) => a.join('.');
@@ -86,16 +116,9 @@ if (!gt(next, current)) {
     process.exit(1);
 }
 
-const dirty = git('status', '--porcelain').trim();
-if (dirty) {
-    console.error('Рабочее дерево не чистое — закоммитьте изменения перед релизом:\n' + dirty);
-    process.exit(1);
-}
-
 try { git('fetch', '--tags', '--quiet'); } catch (_) { /* offline */ }
 if (git('tag', '--list', `${TAG_PREFIX}${next}`).trim()) {
-    console.error(`Тег ${TAG_PREFIX}${next} уже существует`);
-    process.exit(1);
+    fatal(`Тег ${TAG_PREFIX}${next} уже существует`, 'Выберите другую версию: node scripts/release.js <X.Y.Z>');
 }
 
 let notes = '';
@@ -112,6 +135,20 @@ if (dryRun) {
     console.log(`## [${next}] — ${new Date().toISOString().slice(0, 10)}\n\n### Изменено\n\n${notes}`);
     console.log('--- Dry-run: файлы не изменены, коммит/тег/пуш не выполнялись. ---');
     process.exit(0);
+}
+
+// Релиз только из основной ветки: иначе тег уедет на коммит, которого нет в main.
+const branch = currentBranch();
+if (branch !== MAIN_BRANCH) {
+    fatal(
+        `Релиз возможен только из ветки ${MAIN_BRANCH} (текущая: ${branch}).`,
+        `Переключитесь: git switch ${MAIN_BRANCH}`
+    );
+}
+
+const dirty = git('status', '--porcelain').trim();
+if (dirty) {
+    fatal('Рабочее дерево не чистое — закоммитьте изменения перед релизом:\n' + dirty);
 }
 
 let src = fs.readFileSync(SCRIPT, 'utf8');
@@ -132,9 +169,9 @@ changelog = idx >= 0
     : changelog.trimEnd() + '\n\n' + entry;
 fs.writeFileSync(CHANGELOG, changelog);
 
-git('add', 'flow-bridge-firefox.user.js', 'README.md', 'CHANGELOG.md');
-git('commit', '-m', `Release ${TAG_PREFIX}${next}`);
-git('tag', `${TAG_PREFIX}${next}`);
+gitChecked('add', 'flow-bridge-firefox.user.js', 'README.md', 'CHANGELOG.md');
+gitChecked('commit', '-m', `Release ${TAG_PREFIX}${next}`);
+gitChecked('tag', `${TAG_PREFIX}${next}`);
 console.log(`Коммит и тег ${TAG_PREFIX}${next} созданы.`);
 
 if (noPush) {
@@ -142,8 +179,19 @@ if (noPush) {
     process.exit(0);
 }
 
-git('push', 'origin', 'main');
-git('push', 'origin', `${TAG_PREFIX}${next}`);
+try {
+    git('push', 'origin', branch);
+    git('push', 'origin', `${TAG_PREFIX}${next}`);
+} catch (e) {
+    fatal(
+        `Пуш не выполнен:\n${detail(e)}`,
+        [
+            'Локально коммит и тег уже созданы. Дальше — на выбор:',
+            `  1) устранить причину и повторить: git push origin ${branch} && git push origin ${TAG_PREFIX}${next}`,
+            `  2) откатить релиз: git tag -d ${TAG_PREFIX}${next} && git reset --hard HEAD~1`
+        ].join('\n')
+    );
+}
 
 const notesFile = path.join(ROOT, `.release-notes-${next}.md`);
 const releaseNotes = [
