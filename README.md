@@ -122,6 +122,7 @@
 ```
 flow-bridge-firefox/
 ├── flow-bridge-firefox.user.js   # сам скрипт
+├── scripts/release.js            # автоматизация релиза
 ├── README.md                     # эта инструкция
 ├── CHANGELOG.md                  # история изменений
 ├── LICENSE                       # MIT
@@ -137,6 +138,19 @@ flow-bridge-firefox/
   ```
 - После изменений поднимайте `@version` в метаданных и пушьте в `main` — Tampermonkey подхватит обновление через `@updateURL`.
 - Для форков: замените `grashooper` в `@homepageURL`, `@supportURL`, `@updateURL`, `@downloadURL` и в README на свой GitHub-логин.
+
+## 🚀 Релиз
+
+```bash
+node scripts/release.js patch   # 1.0.0 → 1.0.1
+node scripts/release.js minor   # 1.0.1 → 1.1.0
+node scripts/release.js major   # 1.1.0 → 2.0.0
+node scripts/release.js 2.3.4   # явная версия
+node scripts/release.js patch --dry-run   # только показать план
+node scripts/release.js patch --no-push   # коммит и тег без пуша
+```
+
+Скрипт поднимает `@version`, версию в README и CHANGELOG, коммитит, ставит тег `vX.Y.Z`, пушит `main` и тег, затем создаёт GitHub Release с файлом `.user.js` (через `gh`). Требования: чистый рабочий каталог и авторизованный `gh`.
 
 ---
 
